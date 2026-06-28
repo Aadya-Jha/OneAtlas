@@ -24,7 +24,7 @@ A multi-stage AI pipeline that converts a natural language app description into 
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/yourusername/oneatlas.git
+git clone https://github.com/Aadya-Jha/OneAtlas 
 npm install
 ```
 
@@ -36,7 +36,7 @@ cp .env.example .env
 
 Fill in the required keys:
 
-- `GROQ_API_KEY`
+- `GROQ_API_KEY` (primary)
 - `OPENROUTER_API_KEY` (optional fallback)
 - `GEMINI_API_KEY` (optional)
 - `OPENAI_API_KEY` (optional)
@@ -170,7 +170,7 @@ Ensures pages, endpoints and workflows remain internally consistent.
 
 Model routing is centralized in `src/gateway/routing.config.ts`.
 
-Pipeline stages remain independent of provider-specific implementations, allowing routing behaviour to be modified through configuration instead of changing stage logic.
+All eight providers are registered in the cost table with per-token rates. Stage routing and repair escalation are config-driven — switching providers requires only a change to `STAGE_ROUTES`, not stage logic. The current evaluation config uses Groq for stability and reproducibility.
 
 The evaluation configuration included with this repository is optimized for a stable and reproducible local development setup.
 

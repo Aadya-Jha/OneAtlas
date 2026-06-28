@@ -109,7 +109,6 @@ export async function runAppSpecStage(
     }
   } else {
     parsed = structural.value;
-    console.log("[appspec] raw parsed:", JSON.stringify(parsed).slice(0, 500));
   }
 
   // ── Basic structure check before Zod ─────────────────────────────────────
@@ -122,7 +121,6 @@ export async function runAppSpecStage(
     if (!raw.integrationHooks) raw.integrationHooks = [];
     if (!raw.workflowStubs) raw.workflowStubs = [];
   }
-  console.log("[appspec] full validation errors:", JSON.stringify(validateAppSpec(parsed, schema)));
   // ── Field repair ──────────────────────────────────────────────────────────
   let validation = validateAppSpec(parsed, schema);
 
