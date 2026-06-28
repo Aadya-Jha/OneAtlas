@@ -68,7 +68,7 @@ export async function runSchemaStage(intent: AppIntent): Promise<{
   // ── Attempt 1: primary call ───────────────────────────────────────────────
   let rawText = "";
   try {
-    const res = await callStage("schema", SYSTEM_PROMPT, buildUserPrompt(intent), 6000);
+    const res = await callStage("schema", SYSTEM_PROMPT, buildUserPrompt(intent), 2000);
     rawText = res.text;
     tokensUsed += res.tokensUsed;
     estimatedCostUSD += res.estimatedCostUSD;

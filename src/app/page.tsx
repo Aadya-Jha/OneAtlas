@@ -401,6 +401,9 @@ export default function Home() {
     const { jobId } = await res.json();
     setState((s) => ({ ...s, jobId }));
 
+    // Wait for the server to register the job before opening the SSE stream
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
     const es = new EventSource(`/api/generate/${jobId}/stream`);
     esRef.current = es;
 

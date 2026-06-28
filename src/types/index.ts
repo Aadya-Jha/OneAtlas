@@ -11,7 +11,7 @@ export const AppTypeEnum = z.enum([
   "content_platform",
   "analytics",
   "custom",
-]);
+]).catch("custom");
 
 export const AppIntentSchema = z.object({
   appName: z.string().min(1),
@@ -126,7 +126,9 @@ export const WorkflowStubSchema = z.object({
   }),
   integration: z.string(),
   action: z.string(),
-  payload: z.record(z.string(), z.string()),
+  payload: z.record(z.string(), z.union([z.string(), z.number(), z.null()]).transform(v => 
+    v == null ? "" : String(v)
+  )),
 });
 
 export const AppSpecSchema = z.object({

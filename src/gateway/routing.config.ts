@@ -9,7 +9,7 @@ export const COST_TABLE: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-6": { input: 0.003, output: 0.015 },
   "claude-haiku-4-5-20251001": { input: 0.00025, output: 0.00125 },
   // Groq
-  "llama3-8b-8192": { input: 0.00005, output: 0.00008 },
+  "llama-3.1-8b-instant": { input: 0.00005, output: 0.00008 },
   "mixtral-8x7b-32768": { input: 0.00027, output: 0.00027 },
   // Gemini
   "gemini-1.5-flash": { input: 0.000075, output: 0.0003 },
@@ -29,48 +29,23 @@ export const COST_TABLE: Record<string, { input: number; output: number }> = {
 
 export const STAGE_ROUTES: Record<PipelineStage, StageRouteConfig> = {
   intent: {
-    primary: {
-      provider: "groq",
-      model: "llama3-8b-8192",
-      tier: "fast",
-    },
-    fallback: {
-      provider: "openrouter",
-      model: "meta-llama/llama-3-8b-instruct:free",
-      tier: "fast",
-    },
+    primary: { provider: "groq", model: "llama-3.1-8b-instant", tier: "fast" },
+    fallback: { provider: "groq", model: "gemma2-9b-it", tier: "fast" },
   },
   schema: {
-    primary: {
-      provider: "gemini",
-      model: "gemini-1.5-flash",
-      tier: "capable",
-    },
-    fallback: {
-      provider: "openrouter",
-      model: "google/gemini-flash-1.5:free",
-      tier: "capable",
-    },
+    primary: { provider: "groq", model: "llama-3.3-70b-versatile", tier: "capable" },
+    fallback: { provider: "groq", model: "llama-3.1-8b-instant", tier: "fast" },
   },
   appspec: {
-    primary: {
-      provider: "gemini",
-      model: "gemini-1.5-flash",
-      tier: "capable",
-    },
-    fallback: {
-      provider: "openrouter",
-      model: "google/gemini-flash-1.5:free",
-      tier: "capable",
-    },
+    primary: { provider: "groq", model: "llama-3.3-70b-versatile", tier: "capable" },
+    fallback: { provider: "groq", model: "llama-3.1-8b-instant", tier: "fast" },
   },
 };
 
-// OpenRouter fallback — used when primary AND stage fallback both fail (429 / 5xx)
 export const OPENROUTER_FALLBACK: Record<PipelineStage, { model: string; provider: AIProvider }> = {
-  intent:  { provider: "openrouter", model: "meta-llama/llama-3-8b-instruct:free" },
-  schema:  { provider: "openrouter", model: "google/gemini-flash-1.5:free" },
-  appspec: { provider: "openrouter", model: "google/gemini-flash-1.5:free" },
+  intent:  { provider: "groq", model: "llama-3.1-8b-instant" },
+  schema:  { provider: "groq", model: "llama-3.3-70b-versatile" },
+  appspec: { provider: "groq", model: "llama-3.3-70b-versatile" },
 };
 
 // Repair prompts route to the same model that produced the failure.

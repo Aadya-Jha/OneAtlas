@@ -10,9 +10,10 @@ function formatSSE(event: SSEEvent): string {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
-  const job = getJob(params.jobId);
+  const { jobId } = await params;
+  const job = getJob(jobId);
 
   if (!job) {
     return new Response(JSON.stringify({ error: "Job not found" }), {
@@ -28,61 +29,40 @@ export async function GET(
       const send = (event: SSEEvent) => {
         try {
           controller.enqueue(encoder.encode(formatSSE(event)));
-        } catch (_) {
-          // Client disconnected
-        }
+        } catch (_) {}
       };
 
-      // Replay all prior events on reconnect
       for (const event of job.events) {
         send(event);
       }
 
-      // If job is already done, close immediately
       if (job.status === "complete" || job.status === "failed") {
         controller.close();
         return;
       }
 
-      // Subscribe to future events
-      const unsubscribe = subscribe(params.jobId, (event) => {
+      const unsubscribe = subscribe(jobId, (event) => {
         send(event);
-        if (
-          event.type === "generation_complete" ||
-          event.type === "generation_failed"
-        ) {
+        if (event.type === "generation_complete" || event.type === "generation_failed") {
           setTimeout(() => {
-            try {
-              controller.close();
-            } catch (_) {}
+            try { controller.close(); } catch (_) {}
           }, 100);
           unsubscribe();
         }
       });
 
-      // Heartbeat every 15s to keep connection alive
       const heartbeat = setInterval(() => {
         try {
-          controller.enqueue(
-            encoder.encode(`: heartbeat ${new Date().toISOString()}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`: heartbeat ${new Date().toISOString()}\n\n`));
         } catch (_) {
           clearInterval(heartbeat);
         }
       }, 15000);
 
-      // Cleanup on close
-      const cleanup = () => {
+      setTimeout(() => {
         clearInterval(heartbeat);
         unsubscribe();
-      };
-
-      // Timeout after 5 minutes
-      setTimeout(() => {
-        cleanup();
-        try {
-          controller.close();
-        } catch (_) {}
+        try { controller.close(); } catch (_) {}
       }, 5 * 60 * 1000);
     },
   });
@@ -91,7 +71,7 @@ export async function GET(
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+      "Connection": "keep-alive",
       "X-Accel-Buffering": "no",
     },
   });

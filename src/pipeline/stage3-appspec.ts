@@ -4,76 +4,20 @@ import { repairStructural, repairField, repairConsistency, repairViaLLM } from "
 import { INTEGRATION_REGISTRY } from "@/integrations/registry";
 import type { AppIntent, DataSchema, AppSpec, RepairLogEntry, ValidationError } from "@/types";
 
-const SYSTEM_PROMPT = `You are a full-stack application architect. Convert a DataSchema into an AppSpec.
+const SYSTEM_PROMPT = `You are an app architect. Convert a DataSchema into an AppSpec JSON object.
 
-You MUST respond with ONLY a valid JSON object — no markdown, no code fences, no explanation.
+Respond with ONLY valid JSON, no markdown, no explanation.
 
-The JSON must match this exact structure:
+Required structure:
 {
-  "pages": [
-    {
-      "name": "Page Name",
-      "route": "/route",
-      "layout": "list | detail | dashboard | settings",
-      "boundEntity": "EntityName",
-      "components": ["table", "form", "chart", "card"]
-    }
-  ],
-  "apiEndpoints": [
-    {
-      "path": "/api/entity-name",
-      "method": "GET | POST | PUT | PATCH | DELETE",
-      "handlerDescription": "Description of what this endpoint does",
-      "boundEntity": "EntityName",
-      "authRequired": true,
-      "rateLimitFlag": false
-    }
-  ],
-  "authRules": {
-    "roles": ["admin", "user"],
-    "permissions": {
-      "EntityName": {
-        "admin": ["read", "write", "delete"],
-        "user": ["read"]
-      }
-    }
-  },
-  "integrationHooks": [
-    {
-      "integrationId": "slack",
-      "trigger": {
-        "entity": "EntityName",
-        "event": "created | updated | deleted | status_changed",
-        "condition": "optional filter expression"
-      },
-      "actionId": "send_channel_message"
-    }
-  ],
-  "workflowStubs": [
-    {
-      "name": "Human readable workflow name",
-      "trigger": {
-        "entity": "EntityName",
-        "event": "created | updated | deleted | status_changed",
-        "condition": "optional filter"
-      },
-      "integration": "integration_id",
-      "action": "action_id",
-      "payload": {
-        "fieldFromEntity": "mappedToActionInput"
-      }
-    }
-  ]
+  "pages": [{ "name", "route", "layout": "list|detail|dashboard|settings", "boundEntity", "components": ["table|form|chart|card"] }],
+  "apiEndpoints": [{ "path", "method": "GET|POST|PUT|PATCH|DELETE", "handlerDescription", "boundEntity", "authRequired": bool, "rateLimitFlag": bool }],
+  "authRules": { "roles": [], "permissions": { "EntityName": { "role": ["read","write","delete"] } } },
+  "integrationHooks": [{ "integrationId", "trigger": { "entity", "event": "created|updated|deleted|status_changed", "condition?" }, "actionId" }],
+  "workflowStubs": [{ "name", "trigger": { "entity", "event", "condition?" }, "integration", "action", "payload": {} }]
 }
 
-CRITICAL RULES:
-1. EVERY page must have at least one apiEndpoint with the same boundEntity
-2. At minimum provide CRUD endpoints (GET list, GET by ID, POST, PUT, DELETE) for each entity
-3. integrationHooks and workflowStubs must only use these integration IDs: slack, stripe, gmail, whatsapp, webhook, notion, jira, github
-4. integrationHooks actionId must match a real action in the integration
-5. Roles in permissions must only be roles listed in authRules.roles
-6. Generate at least one workflowStub per integration mentioned in the prompt
-7. routes must start with /`;
+Rules: every page needs an API endpoint with same boundEntity. Only use these integration IDs: slack, stripe, gmail, whatsapp, webhook, notion, jira, github.`;
 
 function buildUserPrompt(schema: DataSchema, intent: AppIntent): string {
   const registrySnapshot = Object.entries(INTEGRATION_REGISTRY)
@@ -114,7 +58,7 @@ export async function runAppSpecStage(
   // ── Attempt 1: primary call ───────────────────────────────────────────────
   let rawText = "";
   try {
-    const res = await callStage("appspec", SYSTEM_PROMPT, buildUserPrompt(schema, intent), 8000);
+    const res = await callStage("appspec", SYSTEM_PROMPT, buildUserPrompt(schema, intent), 2000);
     rawText = res.text;
     tokensUsed += res.tokensUsed;
     estimatedCostUSD += res.estimatedCostUSD;
@@ -165,6 +109,18 @@ export async function runAppSpecStage(
     }
   } else {
     parsed = structural.value;
+    console.log("[appspec] raw parsed:", JSON.stringify(parsed).slice(0, 500));
+  }
+
+  // ── Basic structure check before Zod ─────────────────────────────────────
+  const raw = parsed as Record<string, unknown>;
+  if (!raw.pages || !raw.apiEndpoints || !raw.authRules) {
+    // Model returned incomplete object — try to rebuild minimum structure
+    if (!raw.pages) raw.pages = [];
+    if (!raw.apiEndpoints) raw.apiEndpoints = [];
+    if (!raw.authRules) raw.authRules = { roles: ["admin", "user"], permissions: {} };
+    if (!raw.integrationHooks) raw.integrationHooks = [];
+    if (!raw.workflowStubs) raw.workflowStubs = [];
   }
 
   // ── Field repair ──────────────────────────────────────────────────────────

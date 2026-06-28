@@ -6,9 +6,10 @@ import type { PipelineStage, ValidationError } from "@/types";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { jobId: string } }
+  { params }: { params: Promise<{ jobId: string }> }
 ) {
-  const job = getJob(params.jobId);
+  const { jobId } = await params;
+  const job = getJob(jobId);
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
@@ -76,14 +77,14 @@ export async function POST(
       ? validateSchema(parsed)
       : validateAppSpec(parsed, job.stages.schema.output as Parameters<typeof validateAppSpec>[1]);
 
-  updateStage(params.jobId, stage, {
+  updateStage(jobId, stage, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     output: parsed as any,
     repairLog: [...stageResult.repairLog, ...logs],
     status: validation.valid ? "complete" : "failed",
   });
 
-  emit(params.jobId, {
+  emit(jobId, {
     type: validation.valid ? "stage_complete" : "stage_failed",
     stage,
     timestamp: new Date().toISOString(),

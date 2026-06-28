@@ -16,14 +16,15 @@ import { INTEGRATION_REGISTRY } from "@/integrations/registry";
 // ─── Helper ───────────────────────────────────────────────────────────────────
 
 function fromZod(err: z.ZodError): ValidationError[] {
-  return err.errors.map((e) => ({
+  if (!err || !err.issues) return [];
+  console.log("[validation] zod issues:", JSON.stringify(err.issues).slice(0, 500));
+  return err.issues.map((e) => ({
     code: e.code,
     message: e.message,
     path: e.path.join("."),
     repairHint: `Fix field at path: ${e.path.join(".")}`,
   }));
 }
-
 // ─── Stage 1: AppIntent ───────────────────────────────────────────────────────
 
 export function validateIntent(raw: unknown): ValidationResult {
