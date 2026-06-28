@@ -35,45 +35,42 @@ export const STAGE_ROUTES: Record<PipelineStage, StageRouteConfig> = {
       tier: "fast",
     },
     fallback: {
-      provider: "openai",
-      model: "gpt-4o-mini",
+      provider: "openrouter",
+      model: "meta-llama/llama-3-8b-instruct:free",
       tier: "fast",
     },
   },
   schema: {
     primary: {
-      provider: "anthropic",
-      model: "claude-sonnet-4-6",
+      provider: "gemini",
+      model: "gemini-1.5-flash",
       tier: "capable",
     },
     fallback: {
-      provider: "openai",
-      model: "gpt-4o",
+      provider: "openrouter",
+      model: "google/gemini-flash-1.5:free",
       tier: "capable",
     },
   },
   appspec: {
     primary: {
-      provider: "openai",
-      model: "gpt-4o",
+      provider: "gemini",
+      model: "gemini-1.5-flash",
       tier: "capable",
     },
     fallback: {
-      provider: "anthropic",
-      model: "claude-sonnet-4-6",
+      provider: "openrouter",
+      model: "google/gemini-flash-1.5:free",
       tier: "capable",
     },
   },
 };
 
 // OpenRouter fallback — used when primary AND stage fallback both fail (429 / 5xx)
-export const OPENROUTER_FALLBACK: Record<
-  PipelineStage,
-  { model: string; provider: AIProvider }
-> = {
-  intent: { provider: "openrouter", model: "meta-llama/llama-3-8b-instruct" },
-  schema: { provider: "openrouter", model: "anthropic/claude-3-sonnet" },
-  appspec: { provider: "openrouter", model: "openai/gpt-4o" },
+export const OPENROUTER_FALLBACK: Record<PipelineStage, { model: string; provider: AIProvider }> = {
+  intent:  { provider: "openrouter", model: "meta-llama/llama-3-8b-instruct:free" },
+  schema:  { provider: "openrouter", model: "google/gemini-flash-1.5:free" },
+  appspec: { provider: "openrouter", model: "google/gemini-flash-1.5:free" },
 };
 
 // Repair prompts route to the same model that produced the failure.
