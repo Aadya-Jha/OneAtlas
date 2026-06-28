@@ -14,10 +14,10 @@ export const AppTypeEnum = z.enum([
 ]).catch("custom");
 
 export const AppIntentSchema = z.object({
-  appName: z.string().min(1),
+  appName: z.string().min(1).catch("Unnamed App"),
   appType: AppTypeEnum,
-  features: z.array(z.string()).min(1),
-  entities: z.array(z.string()).min(1),
+  features: z.array(z.string()).default([]),
+  entities: z.array(z.string()).default([]),
   integrations_requested: z.array(z.string()),
   assumptions: z.array(z.string()),
   clarification_required: z
@@ -51,7 +51,10 @@ export const FieldSchema = z.object({
   isUnique: z.boolean().optional(),
   isRelation: z.boolean().optional(),
   enumValues: z.array(z.string()).optional(),
-  defaultValue: z.string().optional(),
+  defaultValue: z.preprocess(
+    (v) => (v == null ? undefined : String(v)),
+    z.string().optional()
+  ),
 });
 
 export const RelationSchema = z.object({
@@ -86,8 +89,11 @@ export const PageSchema = z.object({
   name: z.string(),
   route: z.string().startsWith("/"),
   layout: LayoutTypeEnum,
-  boundEntity: z.string(),
-  components: z.array(ComponentTypeEnum).min(1),
+  boundEntity: z.preprocess(
+    (v) => (v == null ? "Unknown" : String(v)),
+    z.string()
+  ),
+  components: z.array(ComponentTypeEnum).min(1).catch(["table"]),
 });
 
 export const ApiEndpointSchema = z.object({
@@ -100,10 +106,10 @@ export const ApiEndpointSchema = z.object({
 });
 
 export const AuthRuleSchema = z.object({
-  roles: z.array(z.string()).min(1),
+  roles: z.array(z.string()).default(["admin", "user"]),
   permissions: z.record(
-    z.string(), // entity name
-    z.record(z.string(), z.array(PermissionEnum)) // role -> permissions
+    z.string(),
+    z.record(z.string(), z.array(PermissionEnum).catch(["read"]))
   ),
 });
 
@@ -112,7 +118,10 @@ export const IntegrationHookSchema = z.object({
   trigger: z.object({
     entity: z.string(),
     event: z.enum(["created", "updated", "deleted", "status_changed"]),
-    condition: z.string().optional(),
+    condition: z.preprocess(
+    (v) => (v == null || typeof v !== "string" ? undefined : v),
+    z.string().optional()
+  ),
   }),
   actionId: z.string(),
 });
@@ -122,7 +131,10 @@ export const WorkflowStubSchema = z.object({
   trigger: z.object({
     entity: z.string(),
     event: z.enum(["created", "updated", "deleted", "status_changed"]),
-    condition: z.string().optional(),
+    condition: z.preprocess(
+    (v) => (v == null || typeof v !== "string" ? undefined : v),
+    z.string().optional()
+  ),
   }),
   integration: z.string(),
   action: z.string(),

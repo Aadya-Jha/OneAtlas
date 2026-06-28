@@ -9,13 +9,17 @@ export async function POST(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId } = await params;
+
   const job = getJob(jobId);
   if (!job) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
   const body = await req.json();
-  const { stage, errorHint } = body as { stage: PipelineStage; errorHint?: string };
+  const { stage } = body as {
+    stage: PipelineStage;
+    errorHint?: string;
+  };
 
   if (!stage || !["intent", "schema", "appspec"].includes(stage)) {
     return NextResponse.json(
@@ -25,6 +29,7 @@ export async function POST(
   }
 
   const stageResult = job.stages[stage];
+
   if (!stageResult.output) {
     return NextResponse.json(
       { error: `Stage ${stage} has no output to repair` },
@@ -32,40 +37,52 @@ export async function POST(
     );
   }
 
-  const logs: ReturnType<typeof repairField>["logs"] = [];
+  const logs: import("@/types").RepairLogEntry[] = [];
   let parsed = stageResult.output as Record<string, unknown>;
 
-  // Run validation to find current errors
+  // Initial validation
   let validation =
     stage === "intent"
       ? validateIntent(parsed)
       : stage === "schema"
       ? validateSchema(parsed)
-      : validateAppSpec(parsed, job.stages.schema.output as Parameters<typeof validateAppSpec>[1]);
+      : validateAppSpec(
+          parsed,
+          job.stages.schema.output as Parameters<typeof validateAppSpec>[1]
+        );
 
   if (validation.valid) {
-    return NextResponse.json({ message: "Stage output is already valid", repairLog: [] });
+    return NextResponse.json({
+      message: "Stage output is already valid",
+      repairLog: [],
+    });
   }
 
   const errors = (validation as { valid: false; errors: ValidationError[] }).errors;
 
-  // Run all 3 repair strategies
+  // 1. Structural repair
   const structural = repairStructural(JSON.stringify(parsed));
   logs.push(structural.log);
+
   if (structural.repaired) {
     parsed = structural.value as Record<string, unknown>;
   }
 
+  // 2. Field repair
   const fieldRepair = repairField(parsed, errors, stage, 1);
   logs.push(...fieldRepair.logs);
   parsed = fieldRepair.value;
 
+  // 3. Consistency repair
   const consistencyRepair = repairConsistency(
     parsed,
     errors,
-    stage === "appspec" ? (job.stages.schema.output as Parameters<typeof repairConsistency>[2]) : null,
+    stage === "appspec"
+      ? (job.stages.schema.output as Parameters<typeof repairConsistency>[2])
+      : null,
     2
   );
+
   logs.push(...consistencyRepair.logs);
   parsed = consistencyRepair.value;
 
@@ -75,7 +92,10 @@ export async function POST(
       ? validateIntent(parsed)
       : stage === "schema"
       ? validateSchema(parsed)
-      : validateAppSpec(parsed, job.stages.schema.output as Parameters<typeof validateAppSpec>[1]);
+      : validateAppSpec(
+          parsed,
+          job.stages.schema.output as Parameters<typeof validateAppSpec>[1]
+        );
 
   updateStage(jobId, stage, {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -122,7 +122,7 @@ export async function runAppSpecStage(
     if (!raw.integrationHooks) raw.integrationHooks = [];
     if (!raw.workflowStubs) raw.workflowStubs = [];
   }
-
+  console.log("[appspec] full validation errors:", JSON.stringify(validateAppSpec(parsed, schema)));
   // ── Field repair ──────────────────────────────────────────────────────────
   let validation = validateAppSpec(parsed, schema);
 

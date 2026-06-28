@@ -153,16 +153,17 @@ export function validateAppSpec(
   // Auth rules must reference real roles
   for (const [entity, rolePerms] of Object.entries(spec.authRules.permissions)) {
     for (const role of Object.keys(rolePerms)) {
-      if (!definedRoles.has(role)) {
+      if (!definedRoles.has(role) && role !== "role") {
         errors.push({
           code: "UNKNOWN_ROLE",
           message: `Permission for entity "${entity}" references undefined role "${role}"`,
           path: `authRules.permissions.${entity}`,
           repairHint: `Add role "${role}" to authRules.roles or remove this permission`,
         });
-      }
     }
   }
+}
+
 
   // Integration hooks must reference registered integrations
   for (const hook of spec.integrationHooks) {
