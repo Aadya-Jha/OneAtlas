@@ -3,7 +3,7 @@
 A multi-stage AI pipeline that converts a natural language app description into a validated, machine-readable AppSpec.
 
 ## Live Demo
-https://your-deployment.vercel.app
+[Live Link](https://oneatlas.onrender.com/)
 
 ---
 
@@ -25,14 +25,13 @@ https://your-deployment.vercel.app
 
 ```bash
 git clone https://github.com/yourusername/oneatlas.git
-cd oneatlas
 npm install
 ```
 
 ### 2. Add environment variables
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
 Fill in the required keys:
