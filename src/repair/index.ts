@@ -191,6 +191,22 @@ export function repairConsistency(
 
   for (const error of errors) {
     // PAGE_NO_API — add a GET endpoint for the missing entity
+    // Remove pages where boundEntity is null, "null", "Unknown", or empty
+    if (error.code === "PAGE_UNKNOWN_ENTITY" || error.code === "PAGE_NO_API") {
+      const pages = patched.pages as Array<Record<string, unknown>>;
+      if (Array.isArray(pages)) {
+        patched.pages = pages.filter(
+          (p) =>
+            p.boundEntity != null &&
+            p.boundEntity !== "" &&
+            p.boundEntity !== "null" &&
+            p.boundEntity !== "Unknown"
+        );
+        logs.push(makeLog("consistency", error.message, "repaired", attempt));
+        anyRepaired = true;
+      }
+      continue;
+    }
     if (error.code === "PAGE_NO_API") {
       const entityMatch = error.message.match(/entity: (\w+)/);
       if (entityMatch) {

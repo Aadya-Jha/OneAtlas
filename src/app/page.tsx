@@ -402,44 +402,76 @@ export default function Home() {
     setState((s) => ({ ...s, jobId }));
 
     // Wait for the server to register the job before opening the SSE stream
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
-    const es = new EventSource(`/api/generate/${jobId}/stream`);
-    esRef.current = es;
+    let es: EventSource;
+    const connectStream = () => {
+      es = new EventSource(`/api/generate/${jobId}/stream`);
+      
+      es.onmessage = (e) => {
+        const event: SSEEvent = JSON.parse(e.data);
+        switch (event.type) {
+          case "stage_start":
+            if (event.stage) updateStageInfo(event.stage, { status: "running" });
+            break;
+          case "stage_complete":
+            if (event.stage) {
+              updateStageInfo(event.stage, { status: "complete", repairLog: event.repairLog ?? [] });
+              if (event.stage === "intent") setState((s) => ({ ...s, intent: event.data as AppIntent }));
+              if (event.stage === "schema") setState((s) => ({ ...s, schema: event.data as DataSchema }));
+              if (event.stage === "appspec") setState((s) => ({ ...s, appSpec: event.data as AppSpec }));
+            }
+            break;
+          case "stage_failed":
+            if (event.stage)
+              updateStageInfo(event.stage, { status: "failed", repairLog: event.repairLog ?? [], error: event.error });
+            break;
+          case "generation_complete":
+            setState((s) => ({ ...s, status: "complete" }));
+            es.close();
+            break;
+          case "generation_failed":
+            setState((s) => ({ ...s, status: "failed", error: event.error ?? "Generation failed" }));
+            es.close();
+            break;
+        }
+      };
 
-    es.onmessage = (e) => {
-      const event: SSEEvent = JSON.parse(e.data);
-      switch (event.type) {
-        case "stage_start":
-          if (event.stage) updateStageInfo(event.stage, { status: "running" });
-          break;
-        case "stage_complete":
-          if (event.stage) {
-            updateStageInfo(event.stage, { status: "complete", repairLog: event.repairLog ?? [] });
-            if (event.stage === "intent") setState((s) => ({ ...s, intent: event.data as AppIntent }));
-            if (event.stage === "schema") setState((s) => ({ ...s, schema: event.data as DataSchema }));
-            if (event.stage === "appspec") setState((s) => ({ ...s, appSpec: event.data as AppSpec }));
+      es.onerror = async () => {
+        es.close();
+        // Check if job is already complete before showing error
+        try {
+          const statusRes = await fetch(`/api/generate/${jobId}`);
+          const jobData = await statusRes.json();
+          if (jobData.status === "complete") {
+            setState((s) => ({
+              ...s,
+              status: "complete",
+              intent: jobData.stages.intent.output,
+              schema: jobData.stages.schema.output,
+              appSpec: jobData.stages.appspec.output,
+              stages: {
+                intent: { status: "complete", repairLog: jobData.stages.intent.repairLog ?? [] },
+                schema: { status: "complete", repairLog: jobData.stages.schema.repairLog ?? [] },
+                appspec: { status: "complete", repairLog: jobData.stages.appspec.repairLog ?? [] },
+              },
+            }));
+          } else if (jobData.status === "failed") {
+            setState((s) => ({ ...s, status: "failed", error: "Generation failed" }));
+          } else {
+            // Still running, retry stream after delay
+            await new Promise((r) => setTimeout(r, 1000));
+            connectStream();
           }
-          break;
-        case "stage_failed":
-          if (event.stage)
-            updateStageInfo(event.stage, { status: "failed", repairLog: event.repairLog ?? [], error: event.error });
-          break;
-        case "generation_complete":
-          setState((s) => ({ ...s, status: "complete" }));
-          es.close();
-          break;
-        case "generation_failed":
-          setState((s) => ({ ...s, status: "failed", error: event.error ?? "Generation failed" }));
-          es.close();
-          break;
-      }
+        } catch {
+          setState((s) => ({ ...s, status: "failed", error: "Connection lost" }));
+        }
+      };
+
+      esRef.current = es;
     };
 
-    es.onerror = () => {
-      setState((s) => (s.status === "running" ? { ...s, status: "failed", error: "Connection lost" } : s));
-      es.close();
-    };
+    connectStream();
   }
 
   const totalRepairs = Object.values(state.stages).reduce((n, s) => n + s.repairLog.length, 0);
